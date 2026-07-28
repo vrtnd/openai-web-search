@@ -1,0 +1,53 @@
+#!/bin/sh
+# Dependency-free launcher for the websearch CLI.
+#
+# Prefers Python 3.8+, falls back to Node.js 18+. Set WEBSEARCH_RUNTIME=python
+# or WEBSEARCH_RUNTIME=node to pin one. Every argument is forwarded unchanged.
+
+set -eu
+
+DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+RUNTIME=${WEBSEARCH_RUNTIME:-auto}
+
+have_python() {
+    for candidate in python3 python; do
+        if command -v "$candidate" >/dev/null 2>&1 &&
+            "$candidate" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)' >/dev/null 2>&1; then
+            PYTHON=$candidate
+            return 0
+        fi
+    done
+    return 1
+}
+
+have_node() {
+    if command -v node >/dev/null 2>&1 &&
+        node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 18 ? 0 : 1)' >/dev/null 2>&1; then
+        return 0
+    fi
+    return 1
+}
+
+case "$RUNTIME" in
+    python)
+        if have_python; then exec "$PYTHON" "$DIR/websearch.py" "$@"; fi
+        echo "websearch: WEBSEARCH_RUNTIME=python but no Python 3.8+ was found" >&2
+        exit 1
+        ;;
+    node)
+        if have_node; then exec node "$DIR/websearch.mjs" "$@"; fi
+        echo "websearch: WEBSEARCH_RUNTIME=node but no Node.js 18+ was found" >&2
+        exit 1
+        ;;
+    auto) ;;
+    *)
+        echo "websearch: WEBSEARCH_RUNTIME must be python, node, or auto; got '$RUNTIME'" >&2
+        exit 2
+        ;;
+esac
+
+if have_python; then exec "$PYTHON" "$DIR/websearch.py" "$@"; fi
+if have_node; then exec node "$DIR/websearch.mjs" "$@"; fi
+
+echo "websearch: needs Python 3.8+ or Node.js 18+; neither was found on PATH" >&2
+exit 1

@@ -1,0 +1,21 @@
+{
+  "name": "openai-web-search",
+  "owner": {
+    "name": "vrtnd"
+  },
+  "metadata": {
+    "description": "Use the web search from your ChatGPT/Codex subscription in any agent",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "openai-web-search",
+      "description": "Search the live web, open pages, and follow links using your Codex subscription session, a proxy such as CLIProxyAPI, or any OpenAI-compatible endpoint",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/openai-web-search"
+      ]
+    }
+  ]
+}

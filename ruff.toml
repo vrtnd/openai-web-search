@@ -1,0 +1,11 @@
+# The Python implementation targets 3.8 so it runs on stock system interpreters
+# without a toolchain. Rules that only modernise syntax are left off on purpose:
+# they would add churn without changing behaviour.
+line-length = 100
+target-version = "py38"
+
+[lint]
+select = ["E", "F", "W", "B", "C4", "SIM"]
+ignore = [
+  "SIM105",  # contextlib.suppress adds an import for no clarity gain here
+]

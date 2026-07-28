@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate skill
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Validate against the Agent Skills spec
+        # The skills-ref package installs its CLI as `agentskills`.
+        run: uvx --from skills-ref agentskills validate ./skills/openai-web-search
+      - name: Check evaluation file is valid JSON
+        run: python3 -m json.tool skills/openai-web-search/evals/trigger-eval.json > /dev/null
+      - name: Check marketplace manifest is valid JSON
+        run: python3 -m json.tool .claude-plugin/marketplace.json > /dev/null
+
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+      - name: Run the shared test suite against both runtimes
+        run: python3 tests/run_tests.py
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Ruff
+        run: uvx ruff check skills/openai-web-search/scripts/websearch.py tests/
+      - name: Shellcheck the launcher
+        run: shellcheck skills/openai-web-search/scripts/websearch
+      - name: Node syntax
+        run: node --check skills/openai-web-search/scripts/websearch.mjs
+      - name: No literal invisible characters in source
+        run: |
+          python3 - <<'EOF'
+          import glob, sys
+          # Private Use Area and bidi controls must appear as escapes, never as
+          # literal characters an editor or reviewer cannot see.
+          bad = []
+          for path in glob.glob("skills/**/*.py", recursive=True) + \
+                      glob.glob("skills/**/*.mjs", recursive=True) + \
+                      glob.glob("tests/**/*.py", recursive=True):
+              for number, line in enumerate(open(path, encoding="utf-8"), 1):
+                  for char in line:
+                      code = ord(char)
+                      if 0xE000 <= code <= 0xF8FF or code in range(0x202A, 0x202F) or code == 0x200B:
+                          bad.append("%s:%d U+%04X" % (path, number, code))
+          if bad:
+              print("\n".join(bad))
+              sys.exit(1)
+          print("clean")
+          EOF

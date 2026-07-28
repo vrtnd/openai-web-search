@@ -1,0 +1,6 @@
+interface:
+  display_name: "OpenAI Web Search"
+  short_description: "Web search from your Codex subscription, in any agent"
+  default_prompt: "Use $openai-web-search to research this on the live web and cite the sources."
+policy:
+  allow_implicit_invocation: true
