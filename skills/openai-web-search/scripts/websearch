@@ -11,9 +11,12 @@ DIR=$(unset CDPATH; cd -- "$(dirname -- "$0")" && pwd)
 RUNTIME=${WEBSEARCH_RUNTIME:-auto}
 
 have_python() {
+    # `import ssl` matters as much as the version: an interpreter built without
+    # it passes a version check and then fails every https request with
+    # "unknown url type: https". Skip it here so the Node fallback takes over.
     for candidate in python3 python; do
         if command -v "$candidate" >/dev/null 2>&1 &&
-            "$candidate" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)' >/dev/null 2>&1; then
+            "$candidate" -c 'import ssl, sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)' >/dev/null 2>&1; then
             PYTHON=$candidate
             return 0
         fi
@@ -32,7 +35,8 @@ have_node() {
 case "$RUNTIME" in
     python)
         if have_python; then exec "$PYTHON" "$DIR/websearch.py" "$@"; fi
-        echo "websearch: WEBSEARCH_RUNTIME=python but no Python 3.8+ was found" >&2
+        echo "websearch: WEBSEARCH_RUNTIME=python but no Python 3.8+ with ssl support was found" >&2
+        echo "  check with: python3 -c 'import ssl; print(ssl.OPENSSL_VERSION)'" >&2
         exit 1
         ;;
     node)
@@ -50,5 +54,7 @@ esac
 if have_python; then exec "$PYTHON" "$DIR/websearch.py" "$@"; fi
 if have_node; then exec node "$DIR/websearch.mjs" "$@"; fi
 
-echo "websearch: needs Python 3.8+ or Node.js 18+; neither was found on PATH" >&2
+echo "websearch: needs Python 3.8+ with ssl support, or Node.js 18+; neither was usable" >&2
+echo "  python: python3 -c 'import ssl; print(ssl.OPENSSL_VERSION)'" >&2
+echo "  node:   node --version" >&2
 exit 1

@@ -30,6 +30,13 @@ from urllib import error as urlerror
 from urllib import request as urlrequest
 from urllib.parse import urlsplit
 
+try:  # Absent when the interpreter was built without OpenSSL headers.
+    import ssl  # noqa: F401
+
+    HTTPS_AVAILABLE = True
+except ImportError:  # pragma: no cover - depends on the host interpreter
+    HTTPS_AVAILABLE = False
+
 EXIT_OK = 0
 EXIT_ERROR = 1
 EXIT_USAGE = 2
@@ -450,8 +457,28 @@ class SameHostRedirectHandler(urlrequest.HTTPRedirectHandler):
 _OPENER = urlrequest.build_opener(SameHostRedirectHandler)
 
 
+def require_https_support(url):
+    """Fail early and clearly on an interpreter built without ssl.
+
+    urllib reports that case as "unknown url type: https", which points at the
+    URL rather than at the interpreter.
+    """
+    if not url.lower().startswith("https:") or HTTPS_AVAILABLE:
+        return
+    raise CliError(
+        "this Python cannot make https requests: it was built without the ssl module",
+        EXIT_ERROR,
+        hint=(
+            "Verify with: python3 -c 'import ssl'\n"
+            "Then either install a Python with ssl support, or run the Node "
+            "implementation instead: WEBSEARCH_RUNTIME=node"
+        ),
+    )
+
+
 def post(url, headers, payload, timeout, stream=False):
     """POST JSON. Returns (status, text). Never logs credentials."""
+    require_https_support(url)
     body = json.dumps(payload).encode("utf-8")
     request = urlrequest.Request(url, data=body, method="POST")
     request.add_header("User-Agent", USER_AGENT)

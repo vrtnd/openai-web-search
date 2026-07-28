@@ -266,6 +266,51 @@ def check(label, condition, detail=""):
         FAILURES.append(label)
 
 
+def check_launcher_fallback():
+    """A Python that fails the probe must hand over to Node, not be used anyway.
+
+    An interpreter built without ssl is new enough to pass a version check and
+    still cannot make https requests, so the probe covers capability too.
+    """
+    launcher = os.path.join(SCRIPTS, "websearch")
+    shim_dir = tempfile.mkdtemp(prefix="websearch-shim-")
+    try:
+        for name in ("python3", "python"):
+            shim = os.path.join(shim_dir, name)
+            with open(shim, "w") as handle:
+                handle.write("#!/bin/sh\nexit 1\n")
+            os.chmod(shim, 0o755)
+
+        env = dict(os.environ)
+        env["PATH"] = shim_dir + os.pathsep + env.get("PATH", "")
+        env.pop("WEBSEARCH_RUNTIME", None)
+        proc = subprocess.run(
+            [launcher, "bogus"], env=env, capture_output=True, text=True, timeout=60
+        )
+        # Only the Node parser words it this way; argparse prints a usage block.
+        check(
+            "unusable python falls back to node",
+            "unknown command" in proc.stderr,
+            (proc.stderr or proc.stdout)[:160],
+        )
+
+        for name in ("node",):
+            shim = os.path.join(shim_dir, name)
+            with open(shim, "w") as handle:
+                handle.write("#!/bin/sh\nexit 1\n")
+            os.chmod(shim, 0o755)
+        proc = subprocess.run(
+            [launcher, "probe"], env=env, capture_output=True, text=True, timeout=60
+        )
+        check(
+            "no usable runtime reports both checks",
+            proc.returncode == 1 and "ssl" in proc.stderr and "node --version" in proc.stderr,
+            (proc.stderr or proc.stdout)[:200],
+        )
+    finally:
+        shutil.rmtree(shim_dir, ignore_errors=True)
+
+
 def main():
     selection = sys.argv[1] if len(sys.argv) > 1 else None
     chosen = runners(selection)
@@ -520,6 +565,10 @@ def main():
         finally:
             shutil.rmtree(state, ignore_errors=True)
             server.requests = []
+
+    if shutil.which("node"):
+        print("\n== launcher ==")
+        check_launcher_fallback()
 
     server.shutdown()
     print("\n%d failure(s)" % len(FAILURES))
