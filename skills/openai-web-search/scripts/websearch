@@ -6,7 +6,8 @@
 
 set -eu
 
-DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+# CDPATH is cleared inside the subshell so a user's setting cannot redirect cd.
+DIR=$(unset CDPATH; cd -- "$(dirname -- "$0")" && pwd)
 RUNTIME=${WEBSEARCH_RUNTIME:-auto}
 
 have_python() {
