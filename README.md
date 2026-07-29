@@ -3,8 +3,8 @@
 [![skills.sh](https://skills.sh/b/vrtnd/openai-web-search)](https://skills.sh/vrtnd/openai-web-search)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-**Use the web search that comes with your ChatGPT/Codex subscription — in any coding agent,
-outside the Codex app.**
+**Use the web research that comes with your ChatGPT/Codex subscription — in any coding
+agent, outside the Codex app.**
 
 An [Agent Skill](https://agentskills.io/specification) that works in Claude Code, Codex,
 OpenCode, Cursor, Goose, Copilot, and the other clients implementing the standard.
@@ -31,7 +31,7 @@ This skill routes that same capability to any agent, three ways:
   or any OpenAI-compatible gateway you run — which is also how you share one subscription
   across several machines or agents.
 - **Through the public OpenAI API** with an API key, when you want billing instead of a
-  subscription. That path supports `answer` only.
+  subscription. That path supports hosted `answer` and `research`.
 
 ## What it handles for you
 
@@ -50,8 +50,9 @@ Wrapping the endpoint is the easy part. These are the parts that bite:
 
 | Command | Does |
 | --- | --- |
+| `research` | Research a broad topic and return a detailed report with citations and sources. |
 | `answer` | Ask a question, get prose with source links. Works on every credential mode. |
-| `search` | A ranked list of sources, summarised to fit an agent's context. |
+| `search` | A ranked source list for manual discovery, not broad research. |
 | `open` | Read a page by reference or URL, line-numbered so you can page through it. |
 | `find` | Locate a passage inside an opened page. |
 | `click` | Follow a numbered link from a page you already opened. |
@@ -105,6 +106,7 @@ request that never touches the public web. Full details in
 W=skills/openai-web-search/scripts/websearch
 
 "$W" answer "What changed in the latest Kubernetes release?" --context low
+"$W" research "Research current Effect TypeScript production best practices"
 "$W" search "kubernetes changelog" --recency 30 --limit 5
 "$W" open turn0search1 --lines 0-120
 "$W" find turn0search1 "deprecation"
@@ -134,8 +136,10 @@ Report vulnerabilities via [SECURITY.md](SECURITY.md), not a public issue.
 
 ## Endpoint coverage
 
-`answer` uses the standard Responses API web search tool, so it works against any endpoint
-implementing it, including the public OpenAI API with a plain API key.
+`answer` and `research` use the standard Responses API web search tool, so they work
+against endpoints implementing it, including the public OpenAI API with a plain API key.
+`research` is the default for broad questions: it lets the hosted model plan searches,
+inspect pages, and synthesize the evidence in one request.
 
 The page-level commands (`open`, `find`, `click`, and most of `raw`) use the Codex search
 route, reached through a Codex session or a gateway that forwards it. Its command set keeps
@@ -145,7 +149,7 @@ and the CLI turns any change into a clear message rather than a broken run.
 ## Development
 
 ```bash
-python3 tests/run_tests.py       # 43 checks against a local mock, both runtimes
+python3 tests/run_tests.py       # shared local-mock checks, both runtimes
 uvx --from skills-ref agentskills validate ./skills/openai-web-search
 uvx ruff check skills/openai-web-search/scripts/websearch.py tests/
 ```

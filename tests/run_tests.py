@@ -66,6 +66,34 @@ SSE_ANSWER = "\n".join(
 )
 
 
+def sse_answer(text, query="agent skills", sources=None):
+    """Build a deterministic hosted-search stream for long-output tests."""
+    source_list = sources or []
+    return "\n".join(
+        [
+            'data: {"type":"response.created"}',
+            "data: "
+            + json.dumps(
+                {
+                    "type": "response.output_item.done",
+                    "item": {
+                        "type": "web_search_call",
+                        "action": {
+                            "type": "search",
+                            "queries": [query],
+                            "sources": source_list,
+                        },
+                    },
+                }
+            ),
+            "data: " + json.dumps({"type": "response.output_text.done", "text": text}),
+            'data: {"type":"response.completed","response":{"output":[]}}',
+            "data: [DONE]",
+            "",
+        ]
+    )
+
+
 class MockHandler(BaseHTTPRequestHandler):
     """Routes on the request body so one server covers every case."""
 
@@ -93,6 +121,29 @@ class MockHandler(BaseHTTPRequestHandler):
             return
 
         if self.path.endswith("/responses"):
+            question = (
+                (((request.get("input") or [{}])[0].get("content") or [{}])[0].get("text"))
+                or ""
+            )
+            if question == "long?":
+                body = "Long answer. " + ("0123456789" * 1200)
+                return self._send(200, sse_answer(body), "text/event-stream")
+            if question == "research?":
+                return self._send(
+                    200,
+                    sse_answer(
+                        "Detailed research report. ([source](https://example.com/research))",
+                        query="production research",
+                        sources=[
+                            {
+                                "type": "url",
+                                "title": "Primary source",
+                                "url": "https://example.com/research?utm_source=openai",
+                            }
+                        ],
+                    ),
+                    "text/event-stream",
+                )
             return self._send(200, SSE_ANSWER, "text/event-stream")
 
         commands = request.get("commands") or {}
@@ -403,6 +454,95 @@ def main():
             check("answer lists sources", "Sources:" in stdout, stdout[:300])
             check("answer strips utm_source", "utm_source" not in stdout, stdout[:300])
             check("answer reports queries", "agent skills" in stdout, stdout[:300])
+
+            code, stdout, stderr = run(
+                runner, ["research", "research?", "--json"], gateway, state
+            )
+            research_result = json.loads(stdout) if code == 0 else {}
+            check(
+                "research returns a structured synthesis",
+                code == 0
+                and research_result.get("text", "").startswith("Detailed research report")
+                and research_result.get("depth") == "standard",
+                stdout[:300],
+            )
+            check(
+                "research returns complete source metadata",
+                research_result.get("sources")
+                == [
+                    {
+                        "url": "https://example.com/research",
+                        "title": "Primary source",
+                    }
+                ],
+                stdout[:300],
+            )
+            check(
+                "research reports progress on stderr",
+                "research: running hosted web search" in stderr
+                and "production research" in stderr,
+                stderr[:300],
+            )
+            research_requests = [
+                body
+                for path, _headers, body in server.requests
+                if path.endswith("/responses")
+                and (((body.get("input") or [{}])[0].get("content") or [{}])[0].get("text"))
+                == "research?"
+            ]
+            research_payload = research_requests[-1] if research_requests else {}
+            check(
+                "research uses the high-level hosted search contract",
+                research_payload.get("reasoning") == {"effort": "high"}
+                and research_payload.get("tool_choice") == {"type": "web_search"}
+                and research_payload.get("include") == ["web_search_call.action.sources"]
+                and (research_payload.get("tools") or [{}])[0].get("search_context_size")
+                == "high",
+                json.dumps(research_payload)[:400],
+            )
+            check(
+                "standard research keeps the default returned-token budget",
+                "return_token_budget" not in (research_payload.get("tools") or [{}])[0],
+                json.dumps(research_payload)[:400],
+            )
+
+            code, stdout, _ = run(
+                runner,
+                ["research", "research?", "--depth", "deep", "--json"],
+                gateway,
+                state,
+            )
+            deep_result = json.loads(stdout) if code == 0 else {}
+            deep_requests = [
+                body
+                for path, _headers, body in server.requests
+                if path.endswith("/responses")
+                and (((body.get("input") or [{}])[0].get("content") or [{}])[0].get("text"))
+                == "research?"
+            ]
+            deep_payload = deep_requests[-1] if deep_requests else {}
+            check(
+                "deep research enables unlimited returned search content",
+                deep_result.get("depth") == "deep"
+                and (deep_payload.get("tools") or [{}])[0].get("return_token_budget")
+                == "unlimited",
+                json.dumps(deep_payload)[:400],
+            )
+
+            code, stdout, _ = run(runner, ["answer", "long?", "--json"], gateway, state)
+            long_result = json.loads(stdout) if code == 0 else {}
+            check(
+                "long JSON output remains complete and valid",
+                len(long_result.get("text", "")) > 10000 and "[truncated" not in stdout,
+                stdout[-200:],
+            )
+
+            code, stdout, _ = run(runner, ["research", "long?"], gateway, state)
+            check(
+                "research text is not silently truncated",
+                code == 0 and len(stdout) > 10000 and "[truncated" not in stdout,
+                stdout[-200:],
+            )
 
             code, stdout, _ = run(runner, ["session", "show"], gateway, state)
             check("session persists refs", code == 0 and "known refs:" in stdout, stdout[:200])

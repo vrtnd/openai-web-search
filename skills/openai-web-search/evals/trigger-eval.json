@@ -1,5 +1,7 @@
 [
   {"query": "what actually changed in the latest Kubernetes release? I want the real release notes, not your recollection", "should_trigger": true},
+  {"query": "research current Effect TypeScript production best practices and give me a detailed guide with primary sources", "should_trigger": true},
+  {"query": "compare Temporal, Inngest, and Trigger.dev for a production TypeScript backend using current docs and pricing", "should_trigger": true},
   {"query": "read https://arxiv.org/pdf/1706.03762 and find the part that explains multi-head attention", "should_trigger": true},
   {"query": "is that claim about the Rust borrow checker still true in the current edition? check a primary source and link it", "should_trigger": true},
   {"query": "find the Stripe webhooks docs and quote their retry policy verbatim", "should_trigger": true},

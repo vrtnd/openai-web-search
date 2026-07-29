@@ -16,6 +16,10 @@ It is available through a Codex session or a gateway that forwards the route, an
 through the public OpenAI API. The command set keeps evolving, so run `probe` when
 behaviour looks unexpected — it reports what the endpoint currently accepts.
 
+This layer is for manual source discovery and targeted inspection. For a broad topic,
+comparison, best-practices review, or multi-part investigation, use `websearch research`
+instead of building a long `search`/`open` chain.
+
 `raw` takes the whole command object, so anything described here is reachable even when no
 dedicated flag exists.
 

@@ -5,12 +5,12 @@
   },
   "metadata": {
     "description": "Use the web search from your ChatGPT/Codex subscription in any agent",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "plugins": [
     {
       "name": "openai-web-search",
-      "description": "Search the live web, open pages, and follow links using your Codex subscription session, a proxy such as CLIProxyAPI, or any OpenAI-compatible endpoint",
+      "description": "Research broad topics, answer current questions, and inspect sources using your Codex subscription session, a proxy such as CLIProxyAPI, or an OpenAI-compatible endpoint",
       "source": "./",
       "strict": false,
       "skills": [

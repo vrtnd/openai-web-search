@@ -16,7 +16,7 @@
 The first mode whose requirements are met wins. `websearch probe` prints the selected mode
 and the reason, which is the fastest way to confirm where traffic is going.
 
-| Order | Mode | Requires | `answer` | `search`, `open`, `find`, `click`, `raw` |
+| Order | Mode | Requires | `answer`, `research` | `search`, `open`, `find`, `click`, `raw` |
 | --- | --- | --- | --- | --- |
 | 1 | `gateway` | `WEBSEARCH_BASE_URL` and `WEBSEARCH_API_KEY` | yes | yes, if the gateway exposes the route |
 | 2 | `opencode` | an OpenAI-shaped provider in the OpenCode config | yes | yes, if that endpoint exposes the route |
@@ -39,7 +39,8 @@ The base URL must include the version path the gateway serves. Requests go to
 `{base}/responses` and `{base}/alpha/search`.
 
 Whether the second route exists depends on the gateway. `probe` reports `search layer:
-unavailable` or an HTTP 404 when it does not, and `answer` keeps working either way.
+unavailable` or an HTTP 404 when it does not, while hosted `answer` and `research` may
+keep working.
 
 ## Mode 2: OpenCode provider
 
@@ -123,8 +124,9 @@ export OPENAI_API_KEY="sk-..."
 export WEBSEARCH_MODEL="gpt-5.6"   # set this if the default model id is rejected
 ```
 
-Requests go to `https://api.openai.com/v1/responses`. Only `answer` is available: the
-page-level commands live on a ChatGPT backend route that the public API does not serve.
+Requests go to `https://api.openai.com/v1/responses`. Hosted `answer` and `research` are
+available; page-level commands live on a ChatGPT backend route that the public API does not
+serve.
 
 ## Why the skill never refreshes tokens
 
